@@ -91,30 +91,25 @@
         document.getElementById('total').innerText = totalAmount.toFixed(2) + ' ر.س';
 
         // 2. تشغيل ميسر Moyasar
-      Moyasar.init({
+     Moyasar.init({
     element: '.mysr-form',
-    amount: totalAmount * 100, // التأكد من أن المبلغ بالهللة
+    amount: totalAmount * 100, 
     currency: 'SAR',
     description: 'طلب من متجر البلاستيك الذكي',
     
-    // ⚠️ تنبيه: المفتاح أدناه يجب أن يبدأ بـ pk_test_ أو pk_live_
-    publishable_api_key: 'sk_test_7K3EzoeLm1oX3JLsibBb8dkzftNydgpAci1bVeL6', 
+    // ضع المفتاح الذي نسخته من قسم Test Keys هنا
+    publishable_api_key: 'pk_test_77B6e5j74UokDkrejkeh4GjJpnfvMKT2xWZN8pG3', 
 
     callback_url: window.location.origin + '/thanks.html',
-    methods: ['creditcard', 'mada', 'applepay'],
-
-    // ✅ هذا الجزء يحل أخطاء Apple Pay الثلاثة التي ظهرت في الصورة
-    apple_pay: {
-        label: 'متجر البلاستيك',
-        validate_merchant_url: window.location.origin,
-        country: 'SA'
-    },
+    
+    // نصيحة: إذا كنت تجرّب من الكمبيوتر (Localhost)، احذف 'applepay' مؤقتاً ليعمل النموذج فوراً
+    methods: ['creditcard', 'mada'], 
 
     on_completed: async function (payment) {
         if (payment.status === 'paid') {
             await saveOrderToSupabase(payment.id);
         } else {
-            alert('فشلت عملية الدفع: ' + payment.source.message);
+            alert('لم يكتمل الدفع: ' + payment.source.message);
         }
     }
 });
