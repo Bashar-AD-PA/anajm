@@ -107,45 +107,53 @@
 
    on_completed: async function (payment) {
     if (payment.status === 'paid') {
-        // أولاً: حفظ البيانات في Supabase
+        // 1. حفظ الطلب (الدالة ستتحقق من عدم التكرار)
         await saveOrderToSupabase(payment.id);
         
-        // ثانياً: مسح السلة من ذاكرة المتصفح (localStorage)
+        // 2. مسح السلة فوراً لضمان عدم ظهورها مرة أخرى
         localStorage.removeItem('plastic_cart');
         
-        // ثالثاً: التوجه لصفحة الطلبات الجديدة
-        window.location.href = 'my-orders.html'; 
-    } else {
-        alert('فشلت عملية الدفع، يرجى المحاولة مرة أخرى.');
+        // 3. توجيه المستخدم لصفحة قائمة الطلبات
+        window.location.href = 'my-orders.html';
     }
 }
 });
 
         // 3. حفظ الطلب في Supabase بعد نجاح الدفع
         async function saveOrderToSupabase(paymentId) {
-            const { data: { user } } = await _supabase.auth.getUser();
-            
-            const orderData = {
-                user_id: user ? user.id : null,
-                full_name: document.getElementById('custName').value || 'عميل ميسر',
-                phone: document.getElementById('custPhone').value,
-                address: document.getElementById('custAddress').value,
-                items: cart,
-                total_amount: totalAmount,
-                payment_method: 'Moyasar - ' + paymentId,
-                status: 'paid'
-            };
+    const { data: { user } } = await _supabase.auth.getUser();
+    
+    // منع التكرار: نتحقق أولاً إذا كان هذا الـ paymentId موجود مسبقاً
+    const { data: existingOrder } = await _supabase
+        .from('orders')
+        .select('id')
+        .eq('payment_method', 'Moyasar - ' + paymentId)
+        .single();
 
-            const { error } = await _supabase.from('orders').insert([orderData]);
-            
-            if (!error) {
-                localStorage.removeItem('plastic_cart');
-                alert('تم الدفع وحفظ الطلب بنجاح!');
-                window.location.href = 'index.html'; // أو صفحة نجاح مخصصة
-            } else {
-                console.error('Error saving order:', error);
-            }
-        }
+    if (existingOrder) {
+        console.log("الطلب مسجل مسبقاً، لن يتم التكرار.");
+        return; 
+    }
+
+    const orderData = {
+        user_id: user ? user.id : null,
+        full_name: document.getElementById('custName').value,
+        phone: document.getElementById('custPhone').value,
+        address: document.getElementById('custAddress').value,
+        items: cart, // السلة الحالية
+        total_amount: totalAmount,
+        payment_method: 'Moyasar - ' + paymentId,
+        status: 'paid'
+    };
+
+    const { error } = await _supabase.from('orders').insert([orderData]);
+    
+    if (error) {
+        console.error('خطأ في الحفظ:', error);
+    } else {
+        console.log("تم حفظ الطلب بنجاح.");
+    }
+}
     </script>
 </body>
 </html>
