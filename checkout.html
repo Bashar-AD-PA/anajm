@@ -105,13 +105,20 @@
     // نصيحة: إذا كنت تجرّب من الكمبيوتر (Localhost)، احذف 'applepay' مؤقتاً ليعمل النموذج فوراً
     methods: ['creditcard', 'mada'], 
 
-    on_completed: async function (payment) {
-        if (payment.status === 'paid') {
-            await saveOrderToSupabase(payment.id);
-        } else {
-            alert('لم يكتمل الدفع: ' + payment.source.message);
-        }
+   on_completed: async function (payment) {
+    if (payment.status === 'paid') {
+        // أولاً: حفظ البيانات في Supabase
+        await saveOrderToSupabase(payment.id);
+        
+        // ثانياً: مسح السلة من ذاكرة المتصفح (localStorage)
+        localStorage.removeItem('plastic_cart');
+        
+        // ثالثاً: التوجه لصفحة الطلبات الجديدة
+        window.location.href = 'my-orders.html'; 
+    } else {
+        alert('فشلت عملية الدفع، يرجى المحاولة مرة أخرى.');
     }
+}
 });
 
         // 3. حفظ الطلب في Supabase بعد نجاح الدفع

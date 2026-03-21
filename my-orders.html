@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>طلباتي - متجر البلاستيك</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&display=swap');
+        body { font-family: 'Almarai', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-50 p-6">
+
+    <div class="max-w-4xl mx-auto">
+        <div class="flex justify-between items-center mb-10">
+            <h1 class="text-3xl font-black text-gray-800">قائمة طلباتي <i class="fas fa-box text-blue-600"></i></h1>
+            <a href="index.html" class="bg-white px-6 py-2 rounded-xl shadow-sm hover:shadow-md transition text-blue-600 font-bold">العودة للمتجر</a>
+        </div>
+
+        <div id="ordersList" class="space-y-6">
+            <div class="text-center py-20 opacity-50">جاري تحميل طلباتك...</div>
+        </div>
+    </div>
+
+    <script>
+        // إعدادات Supabase (تأكد من مطابقتها لإعداداتك)
+        const SUPABASE_URL = 'https://glvsedqxcclnqeriqpem.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; // ضع مفتاحك الكامل هنا
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        async function loadOrders() {
+            // جلب المستخدم الحالي
+            const { data: { user } } = await _supabase.auth.getUser();
+            if (!user) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            // جلب الطلبات من جدول orders
+            const { data: orders, error } = await _supabase
+                .from('orders')
+                .select('*')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false });
+
+            const container = document.getElementById('ordersList');
+            if (error || !orders || orders.length === 0) {
+                container.innerHTML = `<div class="bg-white p-10 rounded-3xl text-center shadow-sm">لا توجد طلبات سابقة.</div>`;
+                return;
+            }
+
+            container.innerHTML = ''; // مسح رسالة التحميل
+
+            orders.forEach(order => {
+                container.innerHTML += `
+                    <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 transition hover:border-blue-200">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <span class="text-xs text-gray-400">رقم الطلب: #${order.id.slice(0,8)}</span>
+                                <h3 class="text-lg font-black text-gray-700 mt-1">المجموع: ${order.total_amount} ر.س</h3>
+                            </div>
+                            <span class="bg-green-100 text-green-600 px-4 py-1 rounded-full text-xs font-bold">
+                                <i class="fas fa-check-circle ml-1"></i> مدفوع
+                            </span>
+                        </div>
+                        
+                        <div class="border-t pt-4 mt-4">
+                            <p class="text-sm text-gray-500 mb-2"><i class="fas fa-truck ml-2"></i> العنوان: ${order.address}</p>
+                            <p class="text-xs text-gray-400">تاريخ الطلب: ${new Date(order.created_at).toLocaleDateString('ar-SA')}</p>
+                        </div>
+                        
+                        <button onclick="reorder('${btoa(JSON.stringify(order.items))}')" class="mt-4 w-full bg-blue-50 text-blue-600 py-3 rounded-xl font-bold hover:bg-blue-600 hover:text-white transition">
+                            <i class="fas fa-redo ml-2 text-sm"></i> إعادة طلب هذه المنتجات
+                        </button>
+                    </div>
+                `;
+            });
+        }
+
+        // ميزة إعادة الطلب (Re-order Feature)
+        function reorder(itemsBase64) {
+            const items = JSON.parse(atob(itemsBase64));
+            localStorage.setItem('plastic_cart', JSON.stringify(items));
+            alert('تمت إضافة المنتجات لسلتك مرة أخرى!');
+            window.location.href = 'cart.html';
+        }
+
+        loadOrders();
+    </script>
+</body>
+</html>
