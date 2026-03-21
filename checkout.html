@@ -91,21 +91,33 @@
         document.getElementById('total').innerText = totalAmount.toFixed(2) + ' ر.س';
 
         // 2. تشغيل ميسر Moyasar
-        Moyasar.init({
-            element: '.mysr-form',
-            amount: totalAmount * 100, // ميسر يحسب بالهللة (نضرب في 100)
-            currency: 'SAR',
-            description: 'طلب من متجر البلاستيك',
-            publishable_api_key: '79654c2f-91de-44ec-81e5-eeebd9e9efac', // استبدله بمفتاحك الحقيقي
-            callback_url: window.location.origin + '/thanks.html', // صفحة شكر بعد الدفع
-            methods: ['creditcard', 'mada', 'applepay'],
-            on_completed: async function (payment) {
-                // تُستدعى هذه الدالة عند نجاح الدفع
-                if (payment.status === 'paid') {
-                    await saveOrderToSupabase(payment.id);
-                }
-            }
-        });
+      Moyasar.init({
+    element: '.mysr-form',
+    amount: totalAmount * 100, // التأكد من أن المبلغ بالهللة
+    currency: 'SAR',
+    description: 'طلب من متجر البلاستيك الذكي',
+    
+    // ⚠️ تنبيه: المفتاح أدناه يجب أن يبدأ بـ pk_test_ أو pk_live_
+    publishable_api_key: 'pk_test_79654c2f-91de-44ec-81e5-eeebd9e9efac', 
+
+    callback_url: window.location.origin + '/thanks.html',
+    methods: ['creditcard', 'mada', 'applepay'],
+
+    // ✅ هذا الجزء يحل أخطاء Apple Pay الثلاثة التي ظهرت في الصورة
+    apple_pay: {
+        label: 'متجر البلاستيك',
+        validate_merchant_url: window.location.origin,
+        country: 'SA'
+    },
+
+    on_completed: async function (payment) {
+        if (payment.status === 'paid') {
+            await saveOrderToSupabase(payment.id);
+        } else {
+            alert('فشلت عملية الدفع: ' + payment.source.message);
+        }
+    }
+});
 
         // 3. حفظ الطلب في Supabase بعد نجاح الدفع
         async function saveOrderToSupabase(paymentId) {
