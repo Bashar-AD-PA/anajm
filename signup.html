@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إنشاء حساب - متجر البلاستيك الذكي</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&display=swap');
+        body { font-family: 'Almarai', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-50 flex items-center justify-center min-h-screen p-4">
+
+    <div class="bg-white p-8 rounded-[2.5rem] shadow-xl shadow-blue-100/50 w-full max-w-md border border-gray-100">
+        <div class="text-center mb-8">
+            <div class="bg-blue-600 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-200">
+                <i class="fas fa-user-plus text-white text-2xl"></i>
+            </div>
+            <h2 class="text-2xl font-black text-gray-800">انضم إلينا</h2>
+            <p class="text-gray-400 text-sm mt-1">أنشئ حسابك لتبدأ الطلب من المصنع</p>
+        </div>
+        
+        <form id="signupForm" class="space-y-5">
+            <div>
+                <label class="block text-gray-700 font-bold mb-2 text-sm">الاسم الكامل</label>
+                <div class="relative">
+                    <span class="absolute inset-y-0 right-0 flex items-center pr-4 text-gray-400">
+                        <i class="fas fa-user"></i>
+                    </span>
+                    <input type="text" id="fullName" 
+                        class="w-full pr-11 pl-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all" 
+                        placeholder="أدخل اسمك الثلاثي" required>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-gray-700 font-bold mb-2 text-sm">البريد الإلكتروني</label>
+                <div class="relative">
+                    <span class="absolute inset-y-0 right-0 flex items-center pr-4 text-gray-400">
+                        <i class="fas fa-envelope"></i>
+                    </span>
+                    <input type="email" id="email" 
+                        class="w-full pr-11 pl-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all" 
+                        placeholder="email@example.com" required>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-gray-700 font-bold mb-2 text-sm">كلمة المرور</label>
+                <div class="relative">
+                    <span class="absolute inset-y-0 right-0 flex items-center pr-4 text-gray-400">
+                        <i class="fas fa-lock"></i>
+                    </span>
+                    <input type="password" id="password" minlength="6"
+                        class="w-full pr-11 pl-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all" 
+                        placeholder="••••••••" required>
+                </div>
+                <p class="text-[10px] text-gray-400 mt-2 px-2">يجب أن لا تقل عن 6 خانات</p>
+            </div>
+
+            <button type="submit" id="signupBtn" 
+                class="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all active:scale-95 flex items-center justify-center gap-2 mt-4">
+                <span>إنشاء الحساب</span>
+                <i class="fas fa-check-circle"></i>
+            </button>
+        </form>
+        
+        <div class="mt-8 pt-6 border-t border-gray-50 text-center">
+            <p class="text-sm text-gray-500">
+                لديك حساب بالفعل؟ 
+                <a href="login.html" class="text-blue-600 font-bold hover:underline">سجل دخولك هنا</a>
+            </p>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://glvsedqxcclnqeriqpem.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdsdnNlZHF4Y2NsbnFlcmlxcGVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA1NzAyNDMsImV4cCI6MjA4NjE0NjI0M30.pMNRywVIOKS8mrimB181iNKZgK42yH331GWYuiwbHdw';
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const signupForm = document.getElementById('signupForm');
+        const signupBtn = document.getElementById('signupBtn');
+
+        signupForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            signupBtn.disabled = true;
+            signupBtn.innerHTML = '<i class="fas fa-circle-notch animate-spin"></i> جاري إنشاء الحساب...';
+
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const fullName = document.getElementById('fullName').value;
+
+            const { data, error } = await _supabase.auth.signUp({
+                email: email,
+                password: password,
+                options: {
+                    data: {
+                        full_name: fullName
+                    }
+                }
+            });
+
+            if (error) {
+                alert("خطأ في التسجيل: " + error.message);
+                signupBtn.disabled = false;
+                signupBtn.innerHTML = '<span>إنشاء الحساب</span> <i class="fas fa-check-circle"></i>';
+                return;
+            }
+
+            if (data.user) {
+                // ملاحظة: إذا كان الـ Email Confirmation مفعل في Supabase، سيحتاج المستخدم لتأكيد بريده أولاً.
+                alert("تم إنشاء الحساب بنجاح! سيتم تحويلك لصفحة تسجيل الدخول.");
+                window.location.href = 'login.html';
+            }
+        });
+    </script>
+</body>
+</html>

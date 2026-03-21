@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <title>تفاصيل المنتج البلاستيكي</title>
+</head>
+<body class="bg-gray-50 min-h-screen p-4 md:p-12">
+    <div class="max-w-5xl mx-auto bg-white rounded-[3rem] shadow-2xl overflow-hidden flex flex-col md:flex-row border border-gray-100">
+        <div class="md:w-1/2 bg-gray-50 flex items-center justify-center p-12">
+            <img id="p-img" src="" class="max-w-full h-auto rounded-3xl transform hover:scale-105 transition duration-500">
+        </div>
+        
+        <div class="md:w-1/2 p-8 md:p-16 flex flex-col justify-center">
+            <nav class="mb-8 text-sm text-gray-400">
+                <a href="index.html" class="hover:text-blue-600 transition underline">المتجر</a> / <span id="p-name-nav">المنتج</span>
+            </nav>
+            
+            <h1 id="p-name" class="text-4xl font-black text-gray-800 mb-4 tracking-tight"></h1>
+            <div class="flex items-center gap-3 mb-6">
+                <span id="p-material" class="bg-blue-600 text-white px-4 py-1 rounded-full text-xs font-bold uppercase tracking-wider"></span>
+                <span class="text-gray-400 text-sm border-r pr-3 border-gray-200">الوزن: <span id="p-weight" class="text-gray-700 font-bold"></span> جرام</span>
+            </div>
+            
+            <p id="p-desc" class="text-gray-500 text-lg leading-relaxed mb-8"></p>
+            
+            <div class="text-3xl font-bold text-blue-600 mb-10">
+                <span id="p-price"></span> <small class="text-sm">ر.س</small>
+            </div>
+
+            <div class="flex items-center gap-4">
+                <div class="flex items-center border-2 border-gray-100 rounded-2xl p-1 bg-gray-50">
+                    <button onclick="changeQty(-1)" class="w-12 h-12 flex items-center justify-center hover:bg-white rounded-xl transition text-xl">-</button>
+                    <input type="number" id="qty" value="1" min="1" class="w-16 text-center bg-transparent font-bold text-lg outline-none">
+                    <button onclick="changeQty(1)" class="w-12 h-12 flex items-center justify-center hover:bg-white rounded-xl transition text-xl">+</button>
+                </div>
+                <button onclick="addToCart()" class="flex-1 bg-blue-600 text-white py-4 rounded-2xl font-bold text-lg hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 flex items-center justify-center gap-3">
+                    <i class="fas fa-cart-plus"></i> أضف للسلة
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://glvsedqxcclnqeriqpem.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdsdnNlZHF4Y2NsbnFlcmlxcGVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA1NzAyNDMsImV4cCI6MjA4NjE0NjI0M30.pMNRywVIOKS8mrimB181iNKZgK42yH331GWYuiwbHdw'; // ضع مفتاحك هنا
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // 1. جلب معرف المنتج من الرابط
+        const urlParams = new URLSearchParams(window.location.search);
+        const productId = urlParams.get('id');
+
+        async function loadDetails() {
+            if (!productId) { window.location.href = 'index.html'; return; }
+
+            const { data: p, error } = await _supabase.from('products').select('*').eq('id', productId).single();
+            if (error) return;
+
+            document.getElementById('p-img').src = p.image_url;
+            document.getElementById('p-name').innerText = p.name;
+            document.getElementById('p-name-nav').innerText = p.name;
+            document.getElementById('p-desc').innerText = p.description || 'وصف المنتج غير متوفر حالياً.';
+            document.getElementById('p-material').innerText = p.material_type;
+            document.getElementById('p-weight').innerText = p.weight_grams;
+            document.getElementById('p-price').innerText = p.price;
+            
+            // تخزين بيانات المنتج مؤقتاً لسهولة إضافتها للسلة
+            window.currentProduct = p;
+        }
+
+        function changeQty(v) {
+            const input = document.getElementById('qty');
+            let val = parseInt(input.value) + v;
+            if (val < 1) val = 1;
+            input.value = val;
+        }
+
+        // 2. دالة الإضافة للسلة (باستخدام LocalStorage لتكون سريعة)
+        function addToCart() {
+            const qty = parseInt(document.getElementById('qty').value);
+            let cart = JSON.parse(localStorage.getItem('plastic_cart')) || [];
+            
+            const existingItem = cart.find(item => item.id === productId);
+            if (existingItem) {
+                existingItem.qty += qty;
+            } else {
+                cart.push({
+                    id: productId,
+                    name: window.currentProduct.name,
+                    price: window.currentProduct.price,
+                    image: window.currentProduct.image_url,
+                    qty: qty
+                });
+            }
+            
+            localStorage.setItem('plastic_cart', JSON.stringify(cart));
+            alert('تمت إضافة المنتج إلى سلة المشتريات بنجاح!');
+        }
+
+        loadDetails();
+    </script>
+</body>
+</html>

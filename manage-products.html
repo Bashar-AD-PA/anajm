@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <title>إدارة المخزون</title>
+</head>
+<body class="bg-gray-100 p-6">
+    <div class="max-w-6xl mx-auto bg-white rounded-3xl shadow-sm p-8">
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-2xl font-bold">إدارة المنتجات البلاستيكية</h1>
+            <a href="add-product.html" class="bg-blue-600 text-white px-6 py-2 rounded-xl text-sm">
+                <i class="fas fa-plus"></i> إضافة منتج جديد
+            </a>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-right border-collapse">
+                <thead>
+                    <tr class="bg-gray-50 border-b">
+                        <th class="p-4 text-gray-600 font-medium">المنتج</th>
+                        <th class="p-4 text-gray-600 font-medium">المادة</th>
+                        <th class="p-4 text-gray-600 font-medium">السعر</th>
+                        <th class="p-4 text-gray-600 font-medium">المخزون</th>
+                        <th class="p-4 text-gray-600 font-medium">الوزن (جرام)</th>
+                        <th class="p-4 text-gray-600 font-medium">الإجراءات</th>
+                    </tr>
+                </thead>
+                <tbody id="productsTableBody">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // إعداد العميل (نفس المفاتيح السابقة)
+        const _supabase = supabase.createClient('URL', 'KEY');
+
+        async function loadManageTable() {
+            const { data: products, error } = await _supabase.from('products').select('*');
+            const tbody = document.getElementById('productsTableBody');
+            tbody.innerHTML = '';
+
+            products.forEach(p => {
+                tbody.innerHTML += `
+                    <tr class="border-b hover:bg-gray-50">
+                        <td class="p-4 flex items-center gap-3">
+                            <img src="${p.image_url || 'placeholder.jpg'}" class="w-10 h-10 rounded shadow-sm">
+                            <span class="font-bold">${p.name}</span>
+                        </td>
+                        <td class="p-4 text-sm">${p.material_type}</td>
+                        <td class="p-4 text-green-600 font-bold">${p.price} ر.س</td>
+                        <td class="p-4 text-sm">${p.stock_quantity} وحدة</td>
+                        <td class="p-4 text-sm">${p.weight_grams || 0} ج</td>
+                        <td class="p-4 space-x-2 space-x-reverse">
+                            <button onclick="deleteProduct('${p.id}')" class="text-red-500 hover:bg-red-50 p-2 rounded">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                            <button class="text-blue-500 hover:bg-blue-50 p-2 rounded">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        async function deleteProduct(id) {
+            if(confirm('هل أنت متأكد من حذف هذا المنتج من المخزن؟')) {
+                const { error } = await _supabase.from('products').delete().eq('id', id);
+                if (error) alert(error.message);
+                else loadManageTable();
+            }
+        }
+
+        loadManageTable();
+    </script>
+</body>
+</html>

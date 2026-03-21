@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إتمام الدفع الآمن - ميسر</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <link rel="stylesheet" href="https://cdn.moyasar.com/mpf/1.12.0/moyasar.css" />
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=fetch"></script>
+    <script src="https://cdn.moyasar.com/mpf/1.12.0/moyasar.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&display=swap');
+        body { font-family: 'Almarai', sans-serif; }
+        /* تحسين شكل نموذج ميسر ليتناسب مع تصميمك */
+        .mysr-form { border-radius: 1.5rem !important; overflow: hidden; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen p-4 md:p-10">
+
+    <div class="max-w-5xl mx-auto">
+        <div class="flex justify-between items-center mb-10">
+            <h1 class="text-3xl font-black text-gray-800">الدفع الآمن <i class="fas fa-shield-alt text-blue-600"></i></h1>
+            <a href="cart.html" class="text-gray-500 font-bold hover:text-blue-600">العودة للسلة</a>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <div class="lg:col-span-2 space-y-6">
+                
+                <div class="bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100">
+                    <h2 class="text-xl font-bold mb-6 flex items-center gap-2">
+                        <i class="fas fa-map-marker-alt text-blue-600"></i> معلومات التوصيل
+                    </h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <input type="text" id="custName" placeholder="الاسم بالكامل" class="p-4 rounded-xl border bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500">
+                        <input type="tel" id="custPhone" placeholder="رقم الجوال" class="p-4 rounded-xl border bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500">
+                        <textarea id="custAddress" placeholder="العنوان بالتفصيل" class="md:col-span-2 p-4 rounded-xl border bg-gray-50 outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100">
+                    <h2 class="text-xl font-bold mb-6 flex items-center gap-2">
+                        <i class="fas fa-credit-card text-blue-600"></i> اختر طريقة الدفع
+                    </h2>
+                    <div class="mysr-form"></div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-1">
+                <div class="bg-blue-600 text-white p-8 rounded-[2.5rem] shadow-xl sticky top-10">
+                    <h2 class="text-xl font-bold mb-6 border-b border-blue-400 pb-4">ملخص الطلب</h2>
+                    <div class="space-y-4 mb-6">
+                        <div class="flex justify-between opacity-80">
+                            <span>الإجمالي:</span>
+                            <span id="subtotal">0.00 ر.س</span>
+                        </div>
+                        <div class="flex justify-between opacity-80">
+                            <span>الضريبة (15%):</span>
+                            <span id="tax">0.00 ر.س</span>
+                        </div>
+                        <div class="flex justify-between text-2xl font-black pt-4 border-t border-blue-400">
+                            <span>المجموع:</span>
+                            <span id="total">0.00 ر.س</span>
+                        </div>
+                    </div>
+                    <p class="text-[11px] leading-relaxed opacity-70">
+                        * سيتم حفظ بيانات الطلب في قاعدة البيانات فور نجاح عملية الدفع.
+                    </p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://glvsedqxcclnqeriqpem.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdsdnNlZHF4Y2NsbnFlcmlxcGVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA1NzAyNDMsImV4cCI6MjA4NjE0NjI0M30.pMNRywVIOKS8mrimB181iNKZgK42yH331GWYuiwbHdw';
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // 1. حساب المبلغ وتجهيز السلة
+        const cart = JSON.parse(localStorage.getItem('plastic_cart')) || [];
+        const subtotal = cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
+        const totalAmount = (subtotal * 1.15); // المجموع مع الضريبة
+        
+        document.getElementById('subtotal').innerText = subtotal.toFixed(2) + ' ر.س';
+        document.getElementById('tax').innerText = (subtotal * 0.15).toFixed(2) + ' ر.س';
+        document.getElementById('total').innerText = totalAmount.toFixed(2) + ' ر.س';
+
+        // 2. تشغيل ميسر Moyasar
+        Moyasar.init({
+            element: '.mysr-form',
+            amount: totalAmount * 100, // ميسر يحسب بالهللة (نضرب في 100)
+            currency: 'SAR',
+            description: 'طلب من متجر البلاستيك',
+            publishable_api_key: 'pk_test_xxxxxxxxxxxx', // استبدله بمفتاحك الحقيقي
+            callback_url: window.location.origin + '/thanks.html', // صفحة شكر بعد الدفع
+            methods: ['creditcard', 'mada', 'applepay'],
+            on_completed: async function (payment) {
+                // تُستدعى هذه الدالة عند نجاح الدفع
+                if (payment.status === 'paid') {
+                    await saveOrderToSupabase(payment.id);
+                }
+            }
+        });
+
+        // 3. حفظ الطلب في Supabase بعد نجاح الدفع
+        async function saveOrderToSupabase(paymentId) {
+            const { data: { user } } = await _supabase.auth.getUser();
+            
+            const orderData = {
+                user_id: user ? user.id : null,
+                full_name: document.getElementById('custName').value || 'عميل ميسر',
+                phone: document.getElementById('custPhone').value,
+                address: document.getElementById('custAddress').value,
+                items: cart,
+                total_amount: totalAmount,
+                payment_method: 'Moyasar - ' + paymentId,
+                status: 'paid'
+            };
+
+            const { error } = await _supabase.from('orders').insert([orderData]);
+            
+            if (!error) {
+                localStorage.removeItem('plastic_cart');
+                alert('تم الدفع وحفظ الطلب بنجاح!');
+                window.location.href = 'index.html'; // أو صفحة نجاح مخصصة
+            } else {
+                console.error('Error saving order:', error);
+            }
+        }
+    </script>
+</body>
+</html>
