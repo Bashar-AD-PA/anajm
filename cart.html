@@ -140,6 +140,21 @@
         }
 
         loadCart();
+        window.addEventListener('storage', () => {
+    loadCart(); // سيعيد تحميل السلة فوراً إذا تم مسحها من صفحة الدفع
+});
+
+// ميزة: إظهار عداد المنتجات في عنوان الصفحة
+function updateTitle() {
+    const cart = JSON.parse(localStorage.getItem('plastic_cart')) || [];
+    if (cart.length > 0) {
+        document.title = `(${cart.length}) سلة المشتريات - متجر البلاستيك`;
+    } else {
+        document.title = `سلة المشتريات - متجر البلاستيك`;
+    }
+}
+// استدعاء الوظيفة عند التحميل
+updateTitle();
     </script>
 </body>
 </html>
