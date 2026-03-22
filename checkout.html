@@ -107,14 +107,29 @@
 
    on_completed: async function (payment) {
     if (payment.status === 'paid') {
-        // 1. حفظ الطلب (الدالة ستتحقق من عدم التكرار)
-        await saveOrderToSupabase(payment.id);
-        
-        // 2. مسح السلة فوراً لضمان عدم ظهورها مرة أخرى
-        localStorage.removeItem('plastic_cart');
-        
-        // 3. توجيه المستخدم لصفحة قائمة الطلبات
-        window.location.href = 'my-orders.html';
+        // تغيير نص في الصفحة لإعلام المستخدم بالحفظ
+        const formContainer = document.querySelector('.mysr-form');
+        formContainer.innerHTML = `
+            <div class="text-center p-10">
+                <div class="animate-spin inline-block w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mb-4"></div>
+                <p class="font-bold text-blue-600">تم الدفع بنجاح! جاري تأكيد طلبك وتحديث المخزن...</p>
+            </div>
+        `;
+
+        try {
+            // تنفيذ الحفظ والانتظار حتى ينتهي تماماً
+            await saveOrderToSupabase(payment.id);
+            
+            // مسح السلة
+            localStorage.removeItem('plastic_cart');
+            
+            // توجيه العميل
+            console.log("تم الحفظ، جاري التوجيه...");
+            window.location.href = 'my-orders.html';
+        } catch (err) {
+            alert("حدث خطأ أثناء حفظ الطلب، يرجى التواصل مع الدعم.");
+            console.error(err);
+        }
     }
 }
 });
