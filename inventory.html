@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة إدارة المخزون - مصنع البلاستيك</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&display=swap');
+        body { font-family: 'Almarai', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-50 p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto">
+        <div class="flex justify-between items-center mb-8">
+            <div>
+                <h1 class="text-3xl font-black text-gray-800">تتبع المخزون</h1>
+                <p class="text-gray-500">سجل حركات المنتجات والمواد الخام</p>
+            </div>
+            <a href="add-product.html" class="bg-blue-600 text-white px-6 py-3 rounded-2xl font-bold shadow-lg hover:bg-blue-700 transition">
+                + إضافة كمية/منتج
+            </a>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100">
+                <p class="text-gray-400 text-sm">إجمالي الحركات</p>
+                <h3 id="totalLogs" class="text-2xl font-black text-blue-600">0</h3>
+            </div>
+            <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100">
+                <p class="text-gray-400 text-sm">تنبيهات انخفاض المخزون</p>
+                <h3 id="lowStockCount" class="text-2xl font-black text-red-500">0</h3>
+            </div>
+            <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100">
+                <p class="text-gray-400 text-sm">عمليات اليوم</p>
+                <h3 id="todayOps" class="text-2xl font-black text-green-600">0</h3>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
+            <table class="w-full text-right">
+                <thead class="bg-gray-50 border-b border-gray-100">
+                    <tr>
+                        <th class="px-6 py-4 text-gray-600 font-bold">المنتج</th>
+                        <th class="px-6 py-4 text-gray-600 font-bold">النوع</th>
+                        <th class="px-6 py-4 text-gray-600 font-bold">الكمية</th>
+                        <th class="px-6 py-4 text-gray-600 font-bold">بواسطة</th>
+                        <th class="px-6 py-4 text-gray-600 font-bold">التاريخ</th>
+                    </tr>
+                </thead>
+                <tbody id="logsTableBody" class="divide-y divide-gray-50">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://glvsedqxcclnqeriqpem.supabase.co';
+        const SUPABASE_ANON_KEY = 'YOUR_KEY_HERE';
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        async function fetchInventoryLogs() {
+            // جلب البيانات مع ربطها بجدول المنتجات والبروفايل
+            const { data, error } = await _supabase
+                .from('inventory_logs')
+                .select(`
+                    id, quantity_changed, transaction_type, created_at, reason,
+                    products ( name ),
+                    profiles ( full_name )
+                `)
+                .order('created_at', { ascending: false });
+
+            if (error) { console.error(error); return; }
+
+            const tbody = document.getElementById('logsTableBody');
+            document.getElementById('totalLogs').innerText = data.length;
+
+            tbody.innerHTML = data.map(log => {
+                const isPositive = log.quantity_changed > 0;
+                const typeLabels = {
+                    'production': 'إنتاج جديد',
+                    'sale': 'مبيعات',
+                    'damaged': 'تالف',
+                    'adjustment': 'تعديل يدوي',
+                    'return': 'مرتجع'
+                };
+
+                return `
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="px-6 py-4 font-bold text-gray-800">${log.products?.name || 'منتج محذوف'}</td>
+                        <td class="px-6 py-4">
+                            <span class="px-3 py-1 rounded-full text-xs font-bold ${isPositive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
+                                ${typeLabels[log.transaction_type] || log.transaction_type}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 font-mono font-bold ${isPositive ? 'text-green-600' : 'text-red-600'}">
+                            ${isPositive ? '+' : ''}${log.quantity_changed}
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-500">${log.profiles?.full_name || 'غير معروف'}</td>
+                        <td class="px-6 py-4 text-xs text-gray-400">
+                            ${new Date(log.created_at).toLocaleString('ar-EG')}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // دالة لجلب عدد المنتجات التي تحت الـ 100
+        async function fetchLowStock() {
+            const { count } = await _supabase
+                .from('products')
+                .select('*', { count: 'exact', head: true })
+                .lt('stock_quantity', 100);
+            document.getElementById('lowStockCount').innerText = count || 0;
+        }
+
+        fetchInventoryLogs();
+        fetchLowStock();
+    </script>
+</body>
+</html>

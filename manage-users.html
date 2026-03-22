@@ -99,23 +99,33 @@
 
         // تحديث الرتبة في قاعدة البيانات
         async function updateRole(userId, newRole) {
-            if (!confirm(`هل أنت متأكد من تغيير صلاحية هذا المستخدم إلى (${translateRole(newRole)})؟`)) {
-                loadUsers(); // إعادة التحميل لإلغاء التغيير بصرياً في الـ select
-                return;
-            }
+    if (!confirm(`هل أنت متأكد من تغيير صلاحية هذا المستخدم؟`)) {
+        loadUsers();
+        return;
+    }
 
-            const { error } = await _supabase
-                .from('profiles')
-                .update({ role: newRole })
-                .eq('id', userId);
+    const { data: { user: adminUser } } = await _supabase.auth.getUser();
 
-            if (error) {
-                alert('فشل التحديث: ' + error.message);
-            } else {
-                // تأثير بصري بسيط للنجاح
-                loadUsers();
-            }
-        }
+    // 1. تحديث الرتبة
+    const { error: updateError } = await _supabase
+        .from('profiles')
+        .update({ role: newRole })
+        .eq('id', userId);
+
+    if (updateError) {
+        alert('فشل التحديث: ' + updateError.message);
+        return;
+    }
+
+    // 2. تسجيل العملية في سجلات النظام (اختياري ولكنه احترافي)
+    await _supabase.from('system_logs').insert([{
+        action: 'تغيير صلاحية',
+        details: `تم تغيير رتبة المستخدم ${userId} إلى ${newRole}`,
+        performed_by: adminUser.id
+    }]);
+
+    loadUsers();
+}
 
         // تحويل أسماء الرتب للعربية
         function translateRole(role) {

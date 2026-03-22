@@ -71,80 +71,95 @@
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdsdnNlZHF4Y2NsbnFlcmlxcGVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA1NzAyNDMsImV4cCI6MjA4NjE0NjI0M30.pMNRywVIOKS8mrimB181iNKZgK42yH331GWYuiwbHdw';
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        const productForm = document.getElementById('productForm');
+const productForm = document.getElementById('productForm');
 
-        productForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const btn = document.getElementById('submitBtn');
-            btn.disabled = true;
-            btn.innerText = 'جاري المعالجة...';
+productForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner animate-spin"></i> جاري الحفظ...';
 
-            // 1. جلب القيم من الـ HTML
-            const file = document.getElementById('imageInput').files[0];
-            const name = document.getElementById('name').value;
-            const price = document.getElementById('price').value;
-            const stock = document.getElementById('stock').value;
-            const material = document.getElementById('material').value;
-            const description = document.getElementById('description').value;
-            const weight = document.getElementById('weight').value;
+    const file = document.getElementById('imageInput').files[0];
+    const name = document.getElementById('name').value;
+    const price = parseFloat(document.getElementById('price').value);
+    const stock = parseInt(document.getElementById('stock').value);
+    const material = document.getElementById('material').value;
+    const description = document.getElementById('description').value;
+    const weight = parseInt(document.getElementById('weight').value);
 
-            try {
-                // 2. رفع الصورة أولاً
-                const fileExt = file.name.split('.').pop();
-                const fileName = `${Math.random()}.${fileExt}`;
-                const filePath = `products/${fileName}`;
+    try {
+        // 1. جلب بيانات المستخدم الحالي لتسجيل من قام بالإجراء
+        const { data: { user } } = await _supabase.auth.getUser();
 
-                const { error: uploadError } = await _supabase.storage
-                    .from('product-images')
-                    .upload(filePath, file);
+        // 2. رفع الصورة
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}.${fileExt}`; // استخدام الوقت لضمان عدم التكرار
+        const filePath = `products/${fileName}`;
 
-                if (uploadError) throw uploadError;
+        const { error: uploadError } = await _supabase.storage
+            .from('product-images')
+            .upload(filePath, file);
 
-                const { data: urlData } = _supabase.storage.from('product-images').getPublicUrl(filePath);
-                const imageUrl = urlData.publicUrl;
+        if (uploadError) throw uploadError;
+        const { data: urlData } = _supabase.storage.from('product-images').getPublicUrl(filePath);
+        const imageUrl = urlData.publicUrl;
 
-                // 3. إرسال البيانات للجدول
-                const { error: productError } = await _supabase
-                    .from('products')
-                    .insert([{ 
-                        name, 
-                        price: parseFloat(price), 
-                        stock_quantity: parseInt(stock), 
-                        material_type: material, 
-                        weight_grams: parseInt(weight),
-                        image_url: imageUrl,
-                        is_active: true,
-                        description 
-                    }]);
+        // 3. إدخال المنتج والحصول على الـ ID الخاص به
+        const { data: newProduct, error: productError } = await _supabase
+            .from('products')
+            .insert([{ 
+                name, 
+                price, 
+                stock_quantity: stock, 
+                material_type: material, 
+                weight_grams: weight,
+                image_url: imageUrl,
+                description 
+            }])
+            .select(); // نستخدم select لجلب الـ ID
 
-                if (productError) throw productError;
+        if (productError) throw productError;
 
-                alert("تم الحفظ بنجاح!");
-                window.location.href = 'index.html';
+        // 4. تسجيل العملية في جدول الـ Inventory Logs (مهم جداً للتقارير)
+        const { error: logError } = await _supabase
+            .from('inventory_logs')
+            .insert([{
+                product_id: newProduct[0].id,
+                quantity_changed: stock,
+                transaction_type: 'production', // نوع العملية: إنتاج/توريد
+                reason: 'إضافة كمية ابتدائية للمخزن عند إنشاء المنتج',
+                performed_by: user.id
+            }]);
 
-            } catch (err) {
-                alert("حدث خطأ: " + err.message);
-                btn.disabled = false;
-                btn.innerText = 'حفظ المنتج في المخزن';
-            }
-        });
+        if (logError) console.error("Log Error:", logError); // لا نعطل العملية لو فشل اللوج فقط
 
-        // حماية الإدارة
-        async function checkAdmin() {
+        alert("تمت إضافة المنتج بنجاح وتحديث سجل المخزون!");
+        window.location.href = 'index.html';
+
+    } catch (err) {
+        alert("حدث خطأ: " + err.message);
+        btn.disabled = false;
+        btn.innerText = 'حفظ المنتج في المخزن';
+    }
+});
+
+// حماية الإدارة المعدلة
+async function checkAdmin() {
     const { data: { user } } = await _supabase.auth.getUser();
     if (!user) { window.location.href = 'login.html'; return; }
     
-    const { data: profile } = await _supabase.from('profiles').select('role').eq('id', user.id).single();
+    const { data: profile } = await _supabase.from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
     
-    if (profile?.role !== 'admin') {
-        alert("عذراً، هذه الصفحة للمدراء فقط");
+    // التحقق من صلاحيات المدير أو المشرف
+    if (!['admin', 'supervisor'].includes(profile?.role)) {
+        alert("عذراً، هذه الصفحة للمدراء والمشرفين فقط");
         window.location.href = 'index.html';
-    } else {
-        // إذا كان مديراً، أظهر الصفحة
-        document.getElementById('adminBody').classList.remove('opacity-0');
     }
 }
-        checkAdmin();
+checkAdmin();
     </script>
 </body>
 </html>

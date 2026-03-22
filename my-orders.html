@@ -32,53 +32,102 @@
         const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         async function loadOrders() {
-            // جلب المستخدم الحالي
-            const { data: { user } } = await _supabase.auth.getUser();
-            if (!user) {
-                window.location.href = 'login.html';
-                return;
-            }
+    const { data: { user } } = await _supabase.auth.getUser();
+    if (!user) { window.location.href = 'login.html'; return; }
 
-            // جلب الطلبات من جدول orders
-            const { data: orders, error } = await _supabase
-                .from('orders')
-                .select('*')
-                .eq('user_id', user.id)
-                .order('created_at', { ascending: false });
+    // جلب الطلبات مع تفاصيل المنتجات المرتبطة بها من جدول order_items
+    const { data: orders, error } = await _supabase
+        .from('orders')
+        .select(`
+            *,
+            order_items (
+                quantity,
+                unit_price,
+                products ( name, image_url )
+            )
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
 
-            const container = document.getElementById('ordersList');
-            if (error || !orders || orders.length === 0) {
-                container.innerHTML = `<div class="bg-white p-10 rounded-3xl text-center shadow-sm">لا توجد طلبات سابقة.</div>`;
-                return;
-            }
+    const container = document.getElementById('ordersList');
+    if (error || !orders || orders.length === 0) {
+        container.innerHTML = `
+            <div class="bg-white p-20 rounded-[3rem] text-center shadow-sm border-2 border-dashed border-gray-100">
+                <i class="fas fa-box-open text-5xl text-gray-200 mb-4 block"></i>
+                <p class="text-gray-500 font-bold">لا توجد طلبات سابقة حتى الآن.</p>
+                <a href="index.html" class="inline-block mt-4 text-blue-600 font-bold underline">ابدأ طلبك الأول الآن</a>
+            </div>`;
+        return;
+    }
 
-            container.innerHTML = ''; // مسح رسالة التحميل
+    container.innerHTML = ''; 
 
-            orders.forEach(order => {
-                container.innerHTML += `
-                    <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 transition hover:border-blue-200">
-                        <div class="flex justify-between items-start mb-4">
-                            <div>
-                                <span class="text-xs text-gray-400">رقم الطلب: #${order.id.slice(0,8)}</span>
-                                <h3 class="text-lg font-black text-gray-700 mt-1">المجموع: ${order.total_amount} ر.س</h3>
-                            </div>
-                            <span class="bg-green-100 text-green-600 px-4 py-1 rounded-full text-xs font-bold">
-                                <i class="fas fa-check-circle ml-1"></i> مدفوع
-                            </span>
-                        </div>
-                        
-                        <div class="border-t pt-4 mt-4">
-                            <p class="text-sm text-gray-500 mb-2"><i class="fas fa-truck ml-2"></i> العنوان: ${order.address}</p>
-                            <p class="text-xs text-gray-400">تاريخ الطلب: ${new Date(order.created_at).toLocaleDateString('ar-SA')}</p>
-                        </div>
-                        
-                        <button onclick="reorder('${btoa(JSON.stringify(order.items))}')" class="mt-4 w-full bg-blue-50 text-blue-600 py-3 rounded-xl font-bold hover:bg-blue-600 hover:text-white transition">
-                            <i class="fas fa-redo ml-2 text-sm"></i> إعادة طلب هذه المنتجات
-                        </button>
+    orders.forEach(order => {
+        // تجميع أسماء المنتجات المختصرة للعرض
+        const itemsSummary = order.order_items.map(oi => oi.products.name).join('، ');
+        
+        container.innerHTML += `
+            <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 transition hover:border-blue-200">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <span class="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-md font-mono">
+                            #${order.id.slice(0,8).toUpperCase()}
+                        </span>
+                        <h3 class="text-xl font-black text-gray-800 mt-2">${order.total_amount.toFixed(2)} ر.س</h3>
                     </div>
-                `;
-            });
-        }
+                    <span class="status-badge px-4 py-1.5 rounded-full text-xs font-bold ${getStatusClass(order.status)}">
+                        <i class="fas ${getStatusIcon(order.status)} ml-1"></i> ${translateStatus(order.status)}
+                    </span>
+                </div>
+                
+                <div class="space-y-3 bg-gray-50 p-4 rounded-2xl border border-gray-50 mb-4">
+                    <p class="text-sm text-gray-600 font-bold">
+                        <i class="fas fa-shopping-bag ml-2 text-blue-400"></i> ${itemsSummary}
+                    </p>
+                    <p class="text-xs text-gray-400">
+                        <i class="fas fa-map-marker-alt ml-2"></i> ${order.address || 'عنوان مسجل مسبقاً'}
+                    </p>
+                    <p class="text-[10px] text-gray-400">
+                        <i class="far fa-calendar-alt ml-2"></i> ${new Date(order.created_at).toLocaleString('ar-SA')}
+                    </p>
+                </div>
+                
+                <button onclick="reorderAndGo('${btoa(JSON.stringify(order.order_items))}')" 
+                    class="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-lg shadow-blue-100 hover:bg-blue-700 active:scale-[0.98] transition">
+                    <i class="fas fa-redo ml-2"></i> تكرار الطلب
+                </button>
+            </div>
+        `;
+    });
+}
+function getStatusClass(s) {
+    if(s === 'paid') return 'bg-green-100 text-green-600';
+    if(s === 'shipped') return 'bg-blue-100 text-blue-600';
+    return 'bg-yellow-100 text-yellow-600';
+}
+function getStatusIcon(s) {
+    if(s === 'paid') return 'fa-check-circle';
+    if(s === 'shipped') return 'fa-truck';
+    return 'fa-clock';
+}
+function translateStatus(s) {
+    const map = { 'paid': 'تم الدفع', 'pending': 'قيد المعالجة', 'shipped': 'جاري التوصيل' };
+    return map[s] || s;
+}
+
+function reorderAndGo(base64) {
+    const rawItems = JSON.parse(atob(base64));
+    // تحويل البيانات لشكل السلة المتوقع
+    const cartFormat = rawItems.map(oi => ({
+        id: oi.product_id,
+        name: oi.products.name,
+        price: oi.unit_price,
+        qty: oi.quantity,
+        image: oi.products.image_url
+    }));
+    localStorage.setItem('plastic_cart', JSON.stringify(cartFormat));
+    window.location.href = 'cart.html';
+}
 
         // ميزة إعادة الطلب (Re-order Feature)
         function reorder(itemsBase64) {

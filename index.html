@@ -81,7 +81,24 @@
         </aside>
 
         <main class="flex-1 overflow-y-auto p-6 bg-gray-50">
-            
+            <div id="adminStats" class="hidden grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+    <div class="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+        <p class="text-xs text-gray-400 font-bold mb-1">إجمالي المبيعات</p>
+        <h4 id="statSales" class="text-2xl font-black text-blue-600">0.00 ر.س</h4>
+    </div>
+    <div class="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+        <p class="text-xs text-gray-400 font-bold mb-1">عدد الطلبات</p>
+        <h4 id="statOrders" class="text-2xl font-black text-gray-800">0</h4>
+    </div>
+    <div class="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+        <p class="text-xs text-gray-400 font-bold mb-1">منتجات منخفضة المخزن</p>
+        <h4 id="statLowStock" class="text-2xl font-black text-red-500">0</h4>
+    </div>
+    <div class="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+        <p class="text-xs text-gray-400 font-bold mb-1">إجمالي العملاء</p>
+        <h4 id="statUsers" class="text-2xl font-black text-purple-600">0</h4>
+    </div>
+</div>
             <div class="flex flex-wrap gap-3 mb-8" id="filterContainer">
                 <button onclick="loadProducts('all', this)" class="filter-active bg-white px-6 py-2 rounded-xl shadow-sm text-sm border border-gray-200 hover:border-blue-500 transition font-bold">الكل</button>
                 <button onclick="loadProducts('PP', this)" class="bg-white px-6 py-2 rounded-xl shadow-sm text-sm border border-gray-200 hover:border-blue-500 transition font-bold text-gray-600">بلاستيك PP</button>
@@ -130,7 +147,10 @@
             
             loadProducts('all');
             updateCartCounter(); // تحديث العداد عند الدخول
+            loadAdminStats();
         }
+
+
 
         // جلب المنتجات
         async function loadProducts(materialType, btnElement) {
@@ -227,6 +247,29 @@
                 window.location.href = 'login.html';
             }
         }
+
+        async function loadAdminStats() {
+    // 1. جلب إجمالي المبيعات والطلبات
+    const { data: orders } = await _supabase.from('orders').select('total_amount');
+    const totalSales = orders.reduce((acc, curr) => acc + curr.total_amount, 0);
+    document.getElementById('statSales').innerText = totalSales.toFixed(2) + ' ر.س';
+    document.getElementById('statOrders').innerText = orders.length;
+
+    // 2. جلب المنتجات التي قارب مخزنها على الانتهاء (أقل من 50 كجم مثلاً)
+    const { count: lowStockCount } = await _supabase
+        .from('products')
+        .select('*', { count: 'exact', head: true })
+        .lt('stock_quantity', 50);
+    document.getElementById('statLowStock').innerText = lowStockCount;
+
+    // 3. جلب عدد المستخدمين
+    const { count: userCount } = await _supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true });
+    document.getElementById('statUsers').innerText = userCount;
+
+    document.getElementById('adminStats').classList.remove('hidden');
+}
 
         checkUser();
     </script>

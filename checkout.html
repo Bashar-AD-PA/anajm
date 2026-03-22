@@ -120,39 +120,70 @@
 });
 
         // 3. حفظ الطلب في Supabase بعد نجاح الدفع
-        async function saveOrderToSupabase(paymentId) {
+       async function saveOrderToSupabase(paymentId) {
     const { data: { user } } = await _supabase.auth.getUser();
     
-    // منع التكرار: نتحقق أولاً إذا كان هذا الـ paymentId موجود مسبقاً
-    const { data: existingOrder } = await _supabase
+    // 1. إدخال الطلب الرئيسي في جدول orders
+    const { data: order, error: orderError } = await _supabase
         .from('orders')
-        .select('id')
-        .eq('payment_method', 'Moyasar - ' + paymentId)
+        .insert([{
+            user_id: user ? user.id : null,
+            total_amount: totalAmount,
+            status: 'paid',
+            // نفترض أننا أضفنا هذا العمود لتخزين مرجع الدفع
+            payment_intent_id: paymentId 
+        }])
+        .select()
         .single();
 
-    if (existingOrder) {
-        console.log("الطلب مسجل مسبقاً، لن يتم التكرار.");
-        return; 
+    if (orderError) {
+        console.error('خطأ في إنشاء الطلب:', orderError);
+        return;
     }
 
-    const orderData = {
-        user_id: user ? user.id : null,
-        full_name: document.getElementById('custName').value,
-        phone: document.getElementById('custPhone').value,
-        address: document.getElementById('custAddress').value,
-        items: cart, // السلة الحالية
-        total_amount: totalAmount,
-        payment_method: 'Moyasar - ' + paymentId,
-        status: 'paid'
-    };
+    // 2. معالجة كل منتج في السلة لتحديث المخزن وتسجيل اللوج
+    for (const item of cart) {
+        try {
+            // أ- إضافة المنتج لجدول order_items
+            await _supabase.from('order_items').insert([{
+                order_id: order.id,
+                product_id: item.id,
+                quantity: item.qty,
+                unit_price: item.price
+            }]);
 
-    const { error } = await _supabase.from('orders').insert([orderData]);
+            // ب- جلب الكمية الحالية لتحديثها
+            const { data: product } = await _supabase
+                .from('products')
+                .select('stock_quantity, name')
+                .eq('id', item.id)
+                .single();
+
+            const newQty = product.stock_quantity - item.qty;
+
+            // ج- تحديث جدول المنتجات بالكمية الجديدة
+            await _supabase
+                .from('products')
+                .update({ stock_quantity: newQty })
+                .eq('id', item.id);
+
+            // د- أهم خطوة لمشروعك: تسجيل الحركة في inventory_logs
+            await _supabase.from('inventory_logs').insert([{
+                product_id: item.id,
+                quantity_changed: -item.qty, // قيمة سالبة لأنها مبيعات
+                transaction_type: 'sale',
+                reason: `بيع آلي - طلب رقم #${order.id.slice(0,8)}`,
+                performed_by: user ? user.id : null
+            }]);
+
+            console.log(`تم تحديث مخزن المنتج: ${product.name}`);
+
+        } catch (itemErr) {
+            console.error("خطأ في معالجة المنتج:", item.name, itemErr);
+        }
+    }
     
-    if (error) {
-        console.error('خطأ في الحفظ:', error);
-    } else {
-        console.log("تم حفظ الطلب بنجاح.");
-    }
+    console.log("اكتملت عملية تحديث النظام بالكامل.");
 }
     </script>
 </body>
