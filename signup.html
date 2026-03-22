@@ -95,14 +95,14 @@
             const fullName = document.getElementById('fullName').value;
 
             const { data, error } = await _supabase.auth.signUp({
-                email: email,
-                password: password,
-                options: {
-                    data: {
-                        full_name: fullName
-                    }
-                }
-            });
+    email: email,
+    password: password,
+    options: {
+        data: {
+            full_name: fullName // تأكد أن المفتاح هنا هو full_name
+        }
+    }
+});
 
             if (error) {
                 alert("خطأ في التسجيل: " + error.message);

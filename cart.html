@@ -5,38 +5,84 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>سلة المشتريات - متجر البلاستيك</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&display=swap');
-        body { font-family: 'Almarai', sans-serif; }
+        body { font-family: 'Almarai', sans-serif; scroll-behavior: smooth; }
+        
+        .cart-item-anim { animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .coupon-container {
+            transition: all 0.3s ease;
+            border: 2px solid #f1f5f9;
+            background: #f8fafc;
+        }
+        .coupon-container:focus-within {
+            border-color: #3b82f6;
+            background: white;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.08);
+        }
+        
+        .success-pulse { animation: successHit 0.5s ease; border-color: #10b981 !important; }
+        @keyframes successHit {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+            100% { transform: scale(1); }
+        }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen p-4 md:p-10">
 
     <div class="max-w-5xl mx-auto">
         <div class="flex justify-between items-center mb-10">
-            <h1 class="text-3xl font-black text-gray-800">سلة المشتريات <i class="fas fa-shopping-basket text-blue-600"></i></h1>
-            <a href="index.html" class="text-blue-600 font-bold hover:underline flex items-center gap-2">
-                 العودة للتسوق <i class="fas fa-arrow-left text-sm"></i>
+            <div>
+                <h1 class="text-3xl font-black text-gray-800">سلة المشتريات <i class="fas fa-shopping-basket text-blue-600"></i></h1>
+                <p class="text-gray-400 text-sm mt-1" id="itemCountLabel">تحميل المنتجات...</p>
+            </div>
+            <a href="index.html" class="bg-white text-blue-600 px-6 py-3 rounded-2xl font-bold shadow-sm hover:shadow-md transition flex items-center gap-2">
+                <i class="fas fa-arrow-right text-sm"></i> العودة للتسوق
             </a>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div class="lg:col-span-2 space-y-4" id="cartItems">
-                </div>
+            <div class="lg:col-span-2 space-y-4" id="cartItems"></div>
 
             <div class="bg-white p-8 rounded-[2rem] shadow-xl border border-gray-100 h-fit sticky top-10">
-                <h2 class="text-xl font-bold mb-6 pb-4 border-b border-gray-50">ملخص الفاتورة</h2>
+                <h2 class="text-xl font-bold mb-6 pb-4 border-b border-gray-50 text-gray-800">ملخص الفاتورة</h2>
                 
-                <div class="space-y-4 mb-8">
+                <div class="space-y-4 mb-6">
                     <div class="flex justify-between text-gray-500 font-bold">
                         <span>إجمالي المنتجات:</span>
                         <span id="subtotal">0.00 ر.س</span>
                     </div>
+                    
+                    <div class="py-2">
+                        <label class="text-[11px] font-bold text-gray-400 mb-2 block mr-1 tracking-wide uppercase">هل لديك كود خصم؟</label>
+                        <div id="couponWrapper" class="coupon-container flex items-center p-1.5 rounded-2xl overflow-hidden">
+                            <input type="text" id="couponCode" placeholder="أدخل الكود هنا.." 
+                                   class="bg-transparent flex-1 px-3 py-2 outline-none text-sm font-bold text-gray-700 placeholder:text-gray-300 min-w-0">
+                            <button onclick="applyCoupon()" 
+                                    class="bg-gray-800 text-white px-5 py-2.5 rounded-xl text-xs font-black hover:bg-black active:scale-95 transition-all shadow-md whitespace-nowrap">
+                                تطبيق
+                            </button>
+                        </div>
+                        <div id="couponMessage" class="text-[11px] mt-2 mr-2 font-bold transition-all duration-300 h-0 overflow-hidden"></div>
+                    </div>
+
                     <div class="flex justify-between text-gray-400 text-sm">
                         <span>ضريبة القيمة المضافة (15%):</span>
                         <span id="tax">0.00 ر.س</span>
                     </div>
+
+                    <div id="discountRow" class="flex justify-between text-green-600 text-sm font-bold hidden bg-green-50 p-3 rounded-xl border border-green-100">
+                        <span class="flex items-center gap-2">
+                            <i class="fas fa-tags text-xs"></i> تم تطبيق الخصم:
+                        </span>
+                        <span id="discountValue">0.00- ر.س</span>
+                    </div>
+
                     <div class="flex justify-between text-2xl font-black text-blue-600 pt-4 border-t border-gray-100">
                         <span>المجموع الكلي:</span>
                         <span id="total">0.00 ر.س</span>
@@ -46,115 +92,161 @@
                 <button onclick="goToCheckout()" id="checkoutBtn" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold text-lg hover:bg-blue-700 transition shadow-lg shadow-blue-100 flex items-center justify-center gap-2">
                     الاستمرار للدفع <i class="fas fa-credit-card"></i>
                 </button>
-                
-                <p class="text-[10px] text-gray-400 text-center mt-4">بضغطك على الزر سيتم توجيهك لصفحة الدفع الآمن</p>
             </div>
         </div>
     </div>
 
     <script>
-        function loadCart() {
+        // --- تهيئة Supabase ---
+        // تأكد من وضع بياناتك الحقيقية هنا
+        const SUPABASE_URL = 'https://your-project.supabase.co';
+        const SUPABASE_KEY = 'your-anon-key';
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let discountPercent = 0;
+
+        async function loadCart() {
             const cartItems = JSON.parse(localStorage.getItem('plastic_cart')) || [];
             const container = document.getElementById('cartItems');
             const checkoutBtn = document.getElementById('checkoutBtn');
+            const itemCountLabel = document.getElementById('itemCountLabel');
             let subtotal = 0;
 
             if (cartItems.length === 0) {
-                container.innerHTML = `
-                    <div class="bg-white p-20 rounded-[2rem] text-center border-2 border-dashed border-gray-200">
-                        <div class="bg-gray-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-                            <i class="fas fa-shopping-cart text-4xl text-gray-200"></i>
+                container.innerHTML = `<div class="bg-white p-20 rounded-[2rem] text-center border-2 border-dashed border-gray-200 cart-item-anim">
+                        <div class="bg-blue-50 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <i class="fas fa-shopping-cart text-4xl text-blue-200"></i>
                         </div>
-                        <p class="text-gray-400 text-xl font-bold">سلتك فارغة حالياً..</p>
-                        <a href="index.html" class="inline-block mt-6 bg-blue-600 text-white px-10 py-3 rounded-2xl font-bold shadow-lg shadow-blue-100 transition hover:bg-blue-700">ابدأ التسوق</a>
+                        <h2 class="text-xl font-black text-gray-700">سلتك فارغة تماماً</h2>
+                        <a href="index.html" class="inline-block mt-8 bg-blue-600 text-white px-10 py-4 rounded-2xl font-bold shadow-lg transition">ابدأ التسوق</a>
                     </div>`;
+                itemCountLabel.innerText = "0 منتجات في السلة";
                 updateSummary(0);
                 checkoutBtn.classList.add('opacity-50', 'cursor-not-allowed');
                 checkoutBtn.disabled = true;
                 return;
             }
 
+            checkoutBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            checkoutBtn.disabled = false;
+            itemCountLabel.innerText = `${cartItems.length} منتجات في السلة`;
+
             container.innerHTML = cartItems.map((item, index) => {
                 const itemTotal = item.price * item.qty;
                 subtotal += itemTotal;
-                return `
-                    <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex items-center gap-6 group hover:border-blue-200 transition">
+                return `<div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex items-center gap-6 group hover:border-blue-200 transition cart-item-anim">
                         <img src="${item.image || 'https://via.placeholder.com/150'}" class="w-24 h-24 object-cover rounded-2xl bg-gray-50 shadow-inner">
                         <div class="flex-1">
                             <h3 class="font-bold text-gray-800 text-lg">${item.name}</h3>
-                            <p class="text-gray-400 text-sm font-bold">السعر: ${item.price} ر.س</p>
+                            <p class="text-gray-400 text-sm font-bold">${item.price} ر.س</p>
                             <div class="flex items-center gap-4 mt-3">
-                                <div class="flex items-center border border-gray-100 rounded-xl overflow-hidden">
-                                    <button onclick="changeQty(${index}, -1)" class="px-3 py-1 bg-gray-50 hover:bg-gray-100">-</button>
-                                    <span class="px-4 py-1 text-sm font-black text-blue-600">${item.qty}</span>
-                                    <button onclick="changeQty(${index}, 1)" class="px-3 py-1 bg-gray-50 hover:bg-gray-100">+</button>
+                                <div class="flex items-center border border-gray-100 rounded-xl overflow-hidden bg-gray-50">
+                                    <button onclick="changeQty(${index}, -1)" class="px-4 py-1 hover:bg-gray-200 transition text-lg">-</button>
+                                    <span class="px-4 py-1 text-sm font-black text-blue-600 bg-white">${item.qty}</span>
+                                    <button onclick="changeQty(${index}, 1)" class="px-4 py-1 hover:bg-gray-200 transition text-lg">+</button>
                                 </div>
-                                <button onclick="removeItem(${index})" class="text-red-400 hover:text-red-600 transition text-sm font-bold">
-                                    <i class="fas fa-trash-alt ml-1"></i> حذف
+                                <button onclick="removeItem(${index})" class="text-red-300 hover:text-red-500 transition text-sm font-bold flex items-center gap-1">
+                                    <i class="fas fa-trash-alt text-xs"></i> إزالة
                                 </button>
                             </div>
                         </div>
-                        <div class="text-left">
-                            <p class="text-xl font-black text-gray-800">${itemTotal.toFixed(2)} <small class="text-xs">ر.س</small></p>
-                        </div>
-                    </div>
-                `;
+                        <div class="text-left font-black text-gray-800">${itemTotal.toFixed(2)} ر.س</div>
+                    </div>`;
             }).join('');
 
             updateSummary(subtotal);
+            updateTitle(cartItems.length);
         }
 
-        function updateSummary(subtotal) {
-            const tax = subtotal * 0.15;
-            const total = subtotal + tax;
-
-            document.getElementById('subtotal').innerText = subtotal.toFixed(2) + ' ر.س';
-            document.getElementById('tax').innerText = tax.toFixed(2) + ' ر.س';
-            document.getElementById('total').innerText = total.toFixed(2) + ' ر.س';
-        }
-
-        function changeQty(index, amount) {
+        async function changeQty(index, amount) {
             let cart = JSON.parse(localStorage.getItem('plastic_cart')) || [];
-            cart[index].qty += amount;
-            if (cart[index].qty <= 0) return removeItem(index);
+            const item = cart[index];
+            const newQty = item.qty + amount;
+
+            if (newQty <= 0) return removeItem(index);
+
+            // التحقق من المخزن عند الزيادة
+            if (amount > 0) {
+                try {
+                    const { data, error } = await _supabase
+                        .from('products')
+                        .select('stock_quantity')
+                        .eq('id', item.id)
+                        .single();
+
+                    if (error) throw error;
+
+                    // تصحيح: المقارنة مع stock_quantity المسترجع من قاعدة البيانات
+                    if (newQty > data.stock_quantity) {
+                        alert(`عذراً، الكمية المتوفرة هي ${data.stock_quantity} فقط.`);
+                        return;
+                    }
+                } catch (err) {
+                    console.error("خطأ في التحقق:", err);
+                }
+            }
+
+            cart[index].qty = newQty;
             localStorage.setItem('plastic_cart', JSON.stringify(cart));
             loadCart();
         }
 
-        function removeItem(index) {
-            if(confirm('هل تريد إزالة هذا المنتج من السلة؟')) {
-                let cart = JSON.parse(localStorage.getItem('plastic_cart')) || [];
-                cart.splice(index, 1);
-                localStorage.setItem('plastic_cart', JSON.stringify(cart));
+        function updateSummary(subtotal) {
+            const tax = subtotal * 0.15;
+            let discount = subtotal * discountPercent;
+            const total = (subtotal + tax) - discount;
+            document.getElementById('subtotal').innerText = subtotal.toFixed(2) + ' ر.س';
+            document.getElementById('tax').innerText = tax.toFixed(2) + ' ر.س';
+            document.getElementById('total').innerText = total.toFixed(2) + ' ر.س';
+            if (discount > 0) {
+                document.getElementById('discountRow').classList.remove('hidden');
+                document.getElementById('discountValue').innerText = `-${discount.toFixed(2)} ر.س`;
+            } else {
+                document.getElementById('discountRow').classList.add('hidden');
+            }
+        }
+
+        function applyCoupon() {
+            const code = document.getElementById('couponCode').value.trim().toUpperCase();
+            const msg = document.getElementById('couponMessage');
+            const wrapper = document.getElementById('couponWrapper');
+            msg.style.height = "auto";
+            if (code === 'SAVE10') {
+                discountPercent = 0.10;
+                msg.innerText = "✓ رائع! تم تطبيق خصم 10% على طلبك";
+                msg.className = "text-[11px] mt-2 mr-2 text-green-600 font-bold block";
+                wrapper.classList.add('success-pulse');
+                setTimeout(() => wrapper.classList.remove('success-pulse'), 500);
+                loadCart(); 
+            } else {
+                discountPercent = 0;
+                msg.innerText = "× عذراً، هذا الكود غير صالح";
+                msg.className = "text-[11px] mt-2 mr-2 text-red-500 font-bold block";
+                wrapper.style.borderColor = "#ef4444";
                 loadCart();
             }
         }
 
-        // الوظيفة الجديدة: التوجيه لصفحة الدفع
+        function removeItem(index) {
+            let cart = JSON.parse(localStorage.getItem('plastic_cart')) || [];
+            cart.splice(index, 1);
+            localStorage.setItem('plastic_cart', JSON.stringify(cart));
+            loadCart();
+        }
+
+        function updateTitle(count) {
+            document.title = count > 0 ? `(${count}) سلة المشتريات` : "سلة فارغة";
+        }
+
         function goToCheckout() {
-            const cartItems = JSON.parse(localStorage.getItem('plastic_cart')) || [];
-            if (cartItems.length === 0) return alert("السلة فارغة!");
-            
-            // بدلاً من الحفظ هنا، نذهب لصفحة checkout لتأكيد البيانات والدفع
             window.location.href = 'checkout.html';
         }
 
-        loadCart();
-        window.addEventListener('storage', () => {
-    loadCart(); // سيعيد تحميل السلة فوراً إذا تم مسحها من صفحة الدفع
-});
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'plastic_cart') loadCart();
+        });
 
-// ميزة: إظهار عداد المنتجات في عنوان الصفحة
-function updateTitle() {
-    const cart = JSON.parse(localStorage.getItem('plastic_cart')) || [];
-    if (cart.length > 0) {
-        document.title = `(${cart.length}) سلة المشتريات - متجر البلاستيك`;
-    } else {
-        document.title = `سلة المشتريات - متجر البلاستيك`;
-    }
-}
-// استدعاء الوظيفة عند التحميل
-updateTitle();
+        loadCart();
     </script>
 </body>
 </html>
